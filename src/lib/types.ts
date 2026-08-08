@@ -9,6 +9,7 @@ export interface Agent {
   status: AgentStatus;
   version: string;
   understandingConfidence: number; // 0..1 — how confident the AI's architecture map is
+  synthetic?: boolean; // true for uploaded agents whose run history is generated, not real
 }
 
 export interface Run {
@@ -27,6 +28,7 @@ export interface Run {
   turns: number;
   topic: string;
   tool: string;
+  synthetic?: boolean; // true when this run was generated for an uploaded agent
 }
 
 export interface Kpi {

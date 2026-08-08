@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useFilters } from "./FiltersProvider";
+import UploadAgentModal from "./UploadAgentModal";
 
 const RANGES = [7, 14, 30];
 
@@ -14,8 +15,9 @@ function statusClass(status: string) {
 }
 
 export default function Topbar() {
-  const { agents, agent, agentId, setAgentId, days, setDays } = useFilters();
+  const { agents, agent, agentId, setAgentId, registerAgent, days, setDays } = useFilters();
   const [open, setOpen] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -27,6 +29,7 @@ export default function Topbar() {
   }, []);
 
   return (
+    <>
     <header className="h-[61px] shrink-0 sticky top-0 z-20 flex items-center justify-between gap-4 px-6 border-b border-[var(--border)] bg-[var(--bg)]/70 backdrop-blur-md">
       {/* Agent selector */}
       <div className="relative" ref={ref}>
@@ -36,7 +39,12 @@ export default function Topbar() {
         >
           <span className={`status-dot ${statusClass(agent?.status ?? "draft")}`} />
           <div className="text-left leading-tight">
-            <div className="text-[13.5px] font-semibold">{agent?.name ?? "Select agent"}</div>
+            <div className="flex items-center gap-2">
+              <span className="text-[13.5px] font-semibold">{agent?.name ?? "Select agent"}</span>
+              {agent?.synthetic && (
+                <span className="chip chip-near !py-0.5 !px-2 !text-[10px]">Synthetic data</span>
+              )}
+            </div>
             <div className="text-[11px] text-[var(--muted)]">
               {agent ? `${agent.framework} · ${agent.model} · ${agent.version}` : "—"}
             </div>
@@ -64,7 +72,12 @@ export default function Topbar() {
               >
                 <span className={`status-dot ${statusClass(a.status)}`} />
                 <div className="flex-1 min-w-0">
-                  <div className="text-[13px] font-medium truncate">{a.name}</div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[13px] font-medium truncate">{a.name}</span>
+                    {a.synthetic && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-[var(--near)] shrink-0" title="Synthetic data" />
+                    )}
+                  </div>
                   <div className="text-[11px] text-[var(--muted)] truncate">
                     {a.framework} · {a.model}
                   </div>
@@ -72,6 +85,20 @@ export default function Topbar() {
                 <span className="text-[11px] text-[var(--faint)]">{a.version}</span>
               </button>
             ))}
+
+            <div className="h-px bg-[var(--border)] my-1.5" />
+            <button
+              onClick={() => {
+                setOpen(false);
+                setUploadOpen(true);
+              }}
+              className="w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium text-[var(--accent)] hover:bg-white/[0.04]"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              Upload agent
+            </button>
           </div>
         )}
       </div>
@@ -93,5 +120,16 @@ export default function Topbar() {
         ))}
       </div>
     </header>
+
+    {uploadOpen && (
+      <UploadAgentModal
+        onClose={() => setUploadOpen(false)}
+        onCreated={(a) => {
+          registerAgent(a);
+          setUploadOpen(false);
+        }}
+      />
+    )}
+    </>
   );
 }

@@ -168,6 +168,13 @@ export function ModelDonut({ data }: { data: NameValue[] }) {
 
 export function HBar({ data, unit }: { data: NameValue[]; unit?: "usd" }) {
   const fmt = unit === "usd" ? fmtUsdFull : (n: number) => String(n);
+  if (!data.length) {
+    return (
+      <div className="h-[140px] grid place-items-center text-[12px] text-[var(--faint)]">
+        No data in this range.
+      </div>
+    );
+  }
   return (
     <ResponsiveContainer width="100%" height={Math.max(140, data.length * 38)}>
       <BarChart data={data} layout="vertical" margin={{ left: 8, right: 16, top: 0, bottom: 0 }}>

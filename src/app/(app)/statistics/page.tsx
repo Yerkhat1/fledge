@@ -167,21 +167,35 @@ function SkeletonGrid() {
 }
 
 export default function StatisticsPage() {
-  const { agentId } = useFilters();
-  const { days } = useFilters();
-  const [data, setData] = useState<StatsResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { agentId, days } = useFilters();
+  const [state, setState] = useState<{ key: string; data: StatsResponse | null }>({
+    key: "",
+    data: null,
+  });
+
+  const key = `${agentId}:${days}`;
 
   useEffect(() => {
     if (!agentId) return;
-    setLoading(true);
+    // `alive` guards against a slower earlier request resolving after a newer
+    // one and overwriting it when the agent/range is switched quickly.
+    let alive = true;
     fetch(`/api/stats?agentId=${agentId}&days=${days}`)
       .then((r) => r.json())
-      .then((d: StatsResponse) => setData(d))
-      .finally(() => setLoading(false));
-  }, [agentId, days]);
+      .then((d: StatsResponse) => {
+        if (alive) setState({ key, data: d });
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [agentId, days, key]);
 
-  if (loading || !data) {
+  // Loading is derived (data doesn't match the current selection) rather than a
+  // separate state set synchronously in the effect.
+  const data = state.key === key ? state.data : null;
+
+  if (!data) {
     return (
       <div>
         <PageHeader />

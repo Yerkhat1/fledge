@@ -40,17 +40,27 @@ function ConfidenceBadge({ value }: { value: number }) {
 
 export default function StudioPage() {
   const { agentId, agent } = useFilters();
-  const [bp, setBp] = useState<Blueprint | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [state, setState] = useState<{ key: string; bp: Blueprint | null }>({
+    key: "",
+    bp: null,
+  });
 
   useEffect(() => {
     if (!agentId) return;
-    setLoading(true);
+    // Ignore a stale response if the agent changes before this resolves.
+    let alive = true;
     fetch(`/api/blueprint?agentId=${agentId}`)
       .then((r) => r.json())
-      .then((d: Blueprint) => setBp(d))
-      .finally(() => setLoading(false));
+      .then((d: Blueprint) => {
+        if (alive) setState({ key: agentId, bp: d });
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
   }, [agentId]);
+
+  const bp = state.key === agentId ? state.bp : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -65,7 +75,7 @@ export default function StudioPage() {
         {bp && <ConfidenceBadge value={bp.confidence} />}
       </div>
 
-      {loading || !bp ? (
+      {!bp ? (
         <div className="grid grid-cols-12 gap-4">
           <div className="skeleton h-[520px] col-span-12 lg:col-span-8" />
           <div className="skeleton h-[520px] col-span-12 lg:col-span-4" />

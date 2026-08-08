@@ -1,4 +1,4 @@
-import { getAgent } from "@/lib/data/repository";
+import { getAgent, getStoredBlueprint } from "@/lib/data/repository";
 import { AgentVersionInfo, Blueprint, BlueprintEdge, BlueprintNode } from "@/lib/types";
 
 // The reconstructed architecture map. In the real product this is produced by
@@ -68,6 +68,11 @@ const VERSIONS: Record<string, AgentVersionInfo[]> = {
 };
 
 export function getBlueprint(agentId: string): Blueprint {
+  // Uploaded agents carry their own reconstructed map; the static map below is
+  // the stand-in for the seeded demo agents.
+  const stored = getStoredBlueprint(agentId);
+  if (stored) return stored;
+
   const agent = getAgent(agentId);
   return {
     agentId,

@@ -5,7 +5,7 @@ import { Blueprint, Zone } from "@/lib/types";
 
 const CORE = ["remove", "delete", "tool", "guardrail", "guard", "policy", "system prompt", "system-prompt", "model", "auth", "api ", "schema", "router", "route ", "escalat", "function call"];
 const NEAR = ["memory", "context", "retrieval", "rag", "re-rank", "rerank", "rank", "routing"];
-const TUNING = ["tone", "word", "phras", "format", "short", "long", "style", "greet", "emoji", "sign-off", "signoff", "concise", "friendly", "polite", "casual", "warm"];
+// Tuning is the fallback zone when a change matches neither CORE nor NEAR.
 
 const EXAMPLES = [
   "Make the greeting warmer and more concise",

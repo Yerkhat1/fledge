@@ -8,6 +8,7 @@ interface Ctx {
   agent: Agent | null;
   agentId: string;
   setAgentId: (id: string) => void;
+  registerAgent: (agent: Agent) => void;
   days: number;
   setDays: (d: number) => void;
   loading: boolean;
@@ -37,9 +38,15 @@ export function FiltersProvider({ children }: { children: React.ReactNode }) {
     [agents, agentId]
   );
 
+  // Append a freshly uploaded agent and select it, without a round-trip refetch.
+  const registerAgent = (a: Agent) => {
+    setAgents((prev) => (prev.some((x) => x.id === a.id) ? prev : [...prev, a]));
+    setAgentId(a.id);
+  };
+
   return (
     <FiltersContext.Provider
-      value={{ agents, agent, agentId, setAgentId, days, setDays, loading }}
+      value={{ agents, agent, agentId, setAgentId, registerAgent, days, setDays, loading }}
     >
       {children}
     </FiltersContext.Provider>

@@ -20,6 +20,9 @@
 # production
 /build
 
+# local JSON persistence (uploaded agents) — machine-local, not committed
+/.data
+
 # misc
 .DS_Store
 *.pem
