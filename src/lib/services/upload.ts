@@ -1,5 +1,6 @@
 import {
   Agent,
+  AgentConfig,
   Blueprint,
   BlueprintEdge,
   BlueprintNode,
@@ -212,6 +213,27 @@ function buildBlueprint(id: string, spec: AgentSpec): Blueprint {
   };
 }
 
+function buildConfig(id: string, spec: AgentSpec): AgentConfig {
+  return {
+    agentId: id,
+    model: spec.model,
+    temperature: 0.3,
+    version: "v1",
+    systemPrompt:
+      spec.system ??
+      `You are ${spec.name}. Follow your tools and guardrails, and ask for ` +
+        `confirmation before any high-impact action.`,
+    tools: spec.tools.slice(0, 6).map((t) => ({
+      name: t,
+      description: `${cap(t)} tool (captured from the uploaded ${spec.framework} spec).`,
+    })),
+    guardrails: [
+      "Escalate to a human on any irreversible or high-risk action.",
+      "Do not exceed the scope of the configured tools.",
+    ],
+  };
+}
+
 // Small deterministic PRNG so an agent's synthetic history is stable per id.
 function mulberry32(seed: number) {
   return function () {
@@ -291,7 +313,8 @@ export function createAgentFromSpec(spec: AgentSpec): Agent {
   const id = uniqueAgentId(slugify(spec.name));
   const agent = buildAgentRecord(id, spec);
   const blueprint = buildBlueprint(id, spec);
+  const config = buildConfig(id, spec);
   const runs = buildRuns(id, spec);
-  commitAgent({ agent, runs, blueprint });
+  commitAgent({ agent, runs, blueprint, config });
   return agent;
 }

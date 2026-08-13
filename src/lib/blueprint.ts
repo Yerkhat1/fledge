@@ -1,4 +1,4 @@
-import { getAgent, getStoredBlueprint } from "@/lib/data/repository";
+import { getAgent, getStoredBlueprint, getVersionOverlay } from "@/lib/data/repository";
 import { AgentVersionInfo, Blueprint, BlueprintEdge, BlueprintNode } from "@/lib/types";
 
 // The reconstructed architecture map. In the real product this is produced by
@@ -67,11 +67,19 @@ const VERSIONS: Record<string, AgentVersionInfo[]> = {
   "ops-router": DEFAULT_VERSIONS,
 };
 
+// Runtime edits (applied in AI Studio) are prepended to the static version
+// list; when any edit exists, the newest applied version is the active one.
+function withOverlay(agentId: string, base: AgentVersionInfo[]): AgentVersionInfo[] {
+  const overlay = getVersionOverlay(agentId);
+  if (!overlay.length) return base;
+  return [...overlay, ...base.map((v) => ({ ...v, active: false }))];
+}
+
 export function getBlueprint(agentId: string): Blueprint {
   // Uploaded agents carry their own reconstructed map; the static map below is
   // the stand-in for the seeded demo agents.
   const stored = getStoredBlueprint(agentId);
-  if (stored) return stored;
+  if (stored) return { ...stored, versions: withOverlay(agentId, stored.versions) };
 
   const agent = getAgent(agentId);
   return {
@@ -82,6 +90,6 @@ export function getBlueprint(agentId: string): Blueprint {
       "Reconstructed agent architecture with risk zones classified by blast radius.",
     nodes: NODES,
     edges: EDGES,
-    versions: VERSIONS[agentId] ?? DEFAULT_VERSIONS,
+    versions: withOverlay(agentId, VERSIONS[agentId] ?? DEFAULT_VERSIONS),
   };
 }

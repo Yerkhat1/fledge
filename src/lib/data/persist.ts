@@ -1,11 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
-import { Agent, Blueprint, Run } from "@/lib/types";
+import { Agent, AgentConfig, AgentVersionInfo, Blueprint, Run } from "@/lib/types";
 
 /**
- * Local durable persistence for *uploaded* agents. Seeded demo data is
- * regenerated deterministically at boot (see seed.ts), so only the subset a
- * user creates is written to disk. This is a JSON file — fine for local/single
+ * Local durable persistence for *uploaded* agents and *applied edits*. Seeded
+ * demo data is regenerated deterministically at boot (see seed.ts), so only the
+ * subset a user creates or changes is written to disk: uploaded agents/runs/
+ * blueprints, plus the edited config + edit history for any agent (seed or
+ * uploaded) that has been changed. This is a JSON file — fine for local/single
  * user; it does not survive on an ephemeral serverless filesystem. See the
  * repository comment for the swap point if this ever needs a networked DB.
  */
@@ -13,6 +15,8 @@ export interface PersistedData {
   agents: Agent[];
   runs: Run[];
   blueprints: Record<string, Blueprint>;
+  configs?: Record<string, AgentConfig>; // uploaded or edited configs
+  appliedVersions?: Record<string, AgentVersionInfo[]>; // runtime edit history
 }
 
 const DATA_DIR = path.join(process.cwd(), ".data");
@@ -25,10 +29,12 @@ export function loadPersisted(): PersistedData {
       agents: parsed.agents ?? [],
       runs: parsed.runs ?? [],
       blueprints: parsed.blueprints ?? {},
+      configs: parsed.configs ?? {},
+      appliedVersions: parsed.appliedVersions ?? {},
     };
   } catch {
     // No file yet (or unreadable) — start empty.
-    return { agents: [], runs: [], blueprints: {} };
+    return { agents: [], runs: [], blueprints: {}, configs: {}, appliedVersions: {} };
   }
 }
 

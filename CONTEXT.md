@@ -86,9 +86,31 @@ touching services/UI.
 - **Statistics tab:** real KPIs, charts, filters (agent + 7/14/30d), version comparison,
   drift, deltas vs a real previous period. All computed, not hardcoded.
 - **AI Studio tab:** reconstructed architecture map with core/near-core/tuning zones,
-  map-confidence badge, version history, and a working impact classifier that gates
-  core-zone changes (keyword-based stub, labeled "simulation"). The real editing AI is
-  **not** wired to a model yet.
+  map-confidence badge, version history, and the **safe-edit engine** (below).
+
+**Safe-edit engine (BUILT):** the impact classifier is now a real engine, not a stub.
+- Every agent has an editable **`AgentConfig`** (system prompt, tools, model, temperature,
+  guardrails) — the artifact edits diff against. Seed agents get hand-written configs
+  (`src/lib/data/configs.ts`); uploaded agents capture their real spec.
+- `src/lib/services/edit.ts` — `analyzeEdit()` detects the change *kind*, produces a
+  concrete **before→after diff** on the config, maps it to blueprint nodes, and computes
+  a **real blast-radius score from the graph** (zone weight × downstream reach). A change
+  *kind* → zone table encodes the crux: a wording tweak to the (core) system prompt is
+  gated **tuning**, while a model swap / new tool contract / guardrail change is **core**.
+- Gate: tuning → auto-apply + spot-check; near-core → regression pass + 10% canary;
+  core → **blocked** + a proposed *safer alternative* + send-to-review.
+- **Apply is real and reversible:** `applyConfigEdit` mutates the config, bumps the
+  version, prepends to Version history, and persists. Core edits are refused server-side
+  (409) — the gate can't be bypassed from the browser.
+- Design principle: **the model proposes, the deterministic zone-router disposes.** An
+  LLM path (`ANTHROPIC_API_KEY`) can propose the diff, but zoning/blast-radius/gate are
+  always computed from the graph, so the safety guarantee never depends on the model
+  grading itself. Deterministic heuristic engine is the always-on default.
+- APIs: `GET /api/config`, `POST /api/edit` (analyze, no mutation), `POST /api/edit/apply`.
+
+**Still not wired:** the LLM proposer runs only with a key set (untested without one); the
+eval/regression "safety net" is described in the verification budget but not yet executing
+real replays — that's the next depth pass.
 
 **Repo:** https://github.com/isaisai101/eternity-ai (private, branch `main`).
 
@@ -123,3 +145,8 @@ touching services/UI.
 
 - Initial MVP: full-stack Next.js app with working Statistics tab and AI Studio shell;
   pushed to GitHub (private).
+- Local persistence + real agent upload (paste/JSON → agent + blueprint + synthetic runs).
+- **Safe-edit engine:** editable AgentConfig for every agent; graph-based blast-radius +
+  change-kind zoning; real before→after diffs; gated, reversible apply with live Version
+  history; server-enforced core block; LLM-ready (model proposes, graph disposes). New
+  routes `/api/config`, `/api/edit`, `/api/edit/apply`.

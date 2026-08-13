@@ -113,3 +113,59 @@ export interface Blueprint {
   edges: BlueprintEdge[];
   versions: AgentVersionInfo[];
 }
+
+// ---------- Editable agent configuration ----------
+// The actual artifact edits operate on. Everything the safe-edit engine diffs
+// against lives here; the blueprint is the *map* of this config, zoned by risk.
+export interface ConfigTool {
+  name: string;
+  description: string;
+}
+export interface AgentConfig {
+  agentId: string;
+  model: string;
+  temperature: number;
+  systemPrompt: string;
+  tools: ConfigTool[];
+  guardrails: string[];
+  version: string;
+}
+
+// ---------- Safe-edit engine ----------
+export type EditGate = "auto" | "check" | "blocked";
+
+// One concrete before→after change the engine proposes to the stored config.
+export interface FieldChange {
+  path: string; // e.g. "systemPrompt", "model", "tools[+]", "guardrails[-]"
+  label: string; // human label, e.g. "System prompt"
+  before: string;
+  after: string;
+}
+
+export interface VerificationStep {
+  label: string;
+  detail: string;
+}
+
+export interface EditProposal {
+  agentId: string;
+  instruction: string;
+  zone: Zone;
+  gate: EditGate;
+  risk: number; // 0..1 blast radius, computed from the graph
+  headline: string;
+  rationale: string;
+  touchedNodeIds: string[];
+  touchedNodeLabels: string[];
+  changes: FieldChange[];
+  verification: VerificationStep[];
+  saferAlternative?: string; // narrower instruction offered when core-gated
+  engine: "llm" | "heuristic"; // which path produced this proposal
+}
+
+export interface ApplyResult {
+  applied: boolean;
+  version: string;
+  config: AgentConfig;
+  proposal: EditProposal;
+}

@@ -103,7 +103,11 @@ export default function StudioPage() {
           </div>
 
           <div className="col-span-12 lg:col-span-4 flex flex-col gap-4">
-            <EditPanel blueprint={bp} />
+            <EditPanel
+              key={bp.agentId}
+              blueprint={bp}
+              onApplied={(updated) => setState({ key: updated.agentId, bp: updated })}
+            />
 
             <div className="card">
               <div className="card-title mb-3">Version history</div>
