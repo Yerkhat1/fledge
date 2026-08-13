@@ -1,12 +1,15 @@
 import { analyzeEdit, EditError } from "@/lib/services/edit";
 import { applyConfigEdit } from "@/lib/data/repository";
+import { runReplay } from "@/lib/services/evals";
 import { getBlueprint } from "@/lib/blueprint";
 
 /**
  * Apply a change. The proposal is re-derived server-side and the gate is
  * enforced here — a core-zone change is refused (409) regardless of what the
- * client sends, so the block can't be bypassed from the browser. Tuning applies
- * outright; near-core applies after its (simulated) regression + canary check.
+ * client sends, so the block can't be bypassed from the browser. Every apply
+ * runs the eval replay first; a `fail` verdict blocks the change even in the
+ * tuning zone. Tuning applies after a spot-check; near-core after a regression
+ * pass + canary.
  */
 export async function POST(req: Request) {
   let body: unknown;
@@ -34,9 +37,23 @@ export async function POST(req: Request) {
       );
     }
 
+    // Empirical safety net: replay before applying. A failing verdict blocks the
+    // change regardless of zone.
+    const replay = runReplay(agentId, proposal);
+    if (replay.verdict === "fail") {
+      return Response.json(
+        {
+          error: "Regression replay failed — the change would degrade behavior.",
+          proposal,
+          replay,
+        },
+        { status: 409 }
+      );
+    }
+
     const note =
       proposal.changes.map((c) => c.label).join(" · ") +
-      (proposal.gate === "check" ? " (near-core · checked + canaried)" : " (tuning · spot-checked)");
+      (proposal.gate === "check" ? " (near-core · regression + canary)" : " (tuning · spot-checked)");
 
     const result = applyConfigEdit(agentId, proposal.changes, note);
     if (!result) return Response.json({ error: "Unknown agent." }, { status: 404 });
@@ -46,6 +63,7 @@ export async function POST(req: Request) {
       version: result.version,
       config: result.config,
       proposal,
+      replay,
       blueprint: getBlueprint(agentId),
     });
   } catch (e) {

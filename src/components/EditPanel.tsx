@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AgentConfig, Blueprint, EditProposal, FieldChange, Zone } from "@/lib/types";
+import {
+  AgentConfig,
+  Blueprint,
+  EditProposal,
+  FieldChange,
+  ReplayResult,
+  ReplayVerdict,
+  Zone,
+} from "@/lib/types";
 
 const EXAMPLES = [
   "Make the greeting warmer and more concise",
@@ -17,6 +25,95 @@ function riskColor(z: Zone) {
 }
 function zoneLabel(z: Zone) {
   return z === "near-core" ? "Near-core" : z[0].toUpperCase() + z.slice(1);
+}
+
+function verdictColor(v: ReplayVerdict) {
+  return v === "fail" ? "var(--danger)" : v === "warn" ? "var(--near)" : "var(--tuning)";
+}
+function verdictLabel(v: ReplayVerdict) {
+  return v === "fail" ? "Fail" : v === "warn" ? "Warn" : "Pass";
+}
+function signedPct(n: number) {
+  return `${n > 0 ? "+" : n < 0 ? "−" : ""}${Math.abs(n)}%`;
+}
+
+// A projected metric: for cost/latency a drop is good; for success a rise is good.
+function Metric({
+  label,
+  value,
+  unit,
+  goodWhen,
+}: {
+  label: string;
+  value: number;
+  unit: "%" | "pts";
+  goodWhen: "down" | "up";
+}) {
+  const good = goodWhen === "down" ? value < 0 : value > 0;
+  const color = value === 0 ? "var(--muted)" : good ? "var(--success)" : "var(--danger)";
+  const sign = value > 0 ? "+" : value < 0 ? "−" : "";
+  const text = unit === "%" ? signedPct(value) : `${sign}${Math.abs(value)} pts`;
+  return (
+    <div className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--panel)]/50 px-2.5 py-2">
+      <div className="text-[10px] text-[var(--faint)]">{label}</div>
+      <div className="text-[13px] font-semibold tabular-nums" style={{ color }}>
+        {text}
+      </div>
+    </div>
+  );
+}
+
+function ReplayView({ replay }: { replay: ReplayResult }) {
+  const c = verdictColor(replay.verdict);
+  return (
+    <div className="mt-3 rounded-xl border p-3" style={{ borderColor: `${c}55`, background: `${c}0f` }}>
+      <div className="flex items-center gap-2 mb-2">
+        <span
+          className="chip"
+          style={{ color: c, borderColor: `${c}59`, background: `${c}1a` }}
+        >
+          <span className="chip-dot" style={{ background: c }} />
+          Replay · {verdictLabel(replay.verdict)}
+        </span>
+        <span className="text-[11px] text-[var(--muted)]">
+          {replay.sampled} cases · {replay.depth} · from {replay.fromRuns.toLocaleString()} runs
+        </span>
+      </div>
+
+      <p className="text-[12.5px] leading-snug mb-2.5" style={{ color: replay.verdict === "fail" ? "#ffb3c2" : "var(--text)" }}>
+        {replay.headline}
+      </p>
+
+      <div className="flex gap-2 mb-2.5">
+        <Metric label="Cost" value={replay.deltas.costPct} unit="%" goodWhen="down" />
+        <Metric label="Latency" value={replay.deltas.latencyPct} unit="%" goodWhen="down" />
+        <Metric label="Success" value={replay.deltas.successPts} unit="pts" goodWhen="up" />
+      </div>
+
+      <div className="text-[11px] text-[var(--faint)] mb-1">
+        {replay.flaggedCases > 0
+          ? `${replay.flaggedCases} of ${replay.sampled} flagged for review`
+          : `No regressions — ${replay.changedCases} of ${replay.sampled} cases changed`}
+      </div>
+      <div className="flex flex-col gap-1">
+        {replay.cases
+          .filter((cs) => cs.flagged || cs.changed)
+          .slice(0, 5)
+          .map((cs) => (
+            <div key={cs.runId} className="flex items-start gap-2 text-[11.5px]">
+              <span
+                className="mt-[5px] w-1.5 h-1.5 rounded-full shrink-0"
+                style={{ background: cs.flagged ? "var(--danger)" : "var(--faint)" }}
+              />
+              <span className="text-[var(--muted)]">
+                <span className="text-[var(--text)]">{cs.topic}</span>
+                {cs.tool !== "none" && <span className="text-[var(--faint)]"> · {cs.tool}</span>} — {cs.note}
+              </span>
+            </div>
+          ))}
+      </div>
+    </div>
+  );
 }
 
 // A compact before→after view. Handles short value swaps, additions, removals,
@@ -81,6 +178,8 @@ export default function EditPanel({
   const [applyState, setApplyState] = useState<"idle" | "applying" | "applied">("idle");
   const [appliedVersion, setAppliedVersion] = useState<string | null>(null);
   const [reviewSent, setReviewSent] = useState(false);
+  const [replay, setReplay] = useState<ReplayResult | null>(null);
+  const [replayLoading, setReplayLoading] = useState(false);
 
   // Fetch the editable config for this agent. All other panel state resets on
   // its own because the parent remounts EditPanel (key={agentId}) when the
@@ -106,6 +205,7 @@ export default function EditPanel({
     setApplyState("idle");
     setAppliedVersion(null);
     setReviewSent(false);
+    setReplay(null);
     try {
       const res = await fetch("/api/edit", {
         method: "POST",
@@ -122,6 +222,26 @@ export default function EditPanel({
     }
   };
 
+  const runReplay = async () => {
+    if (!result) return;
+    setReplayLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/edit/replay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agentId, instruction: result.instruction }),
+      });
+      const data = await res.json();
+      if (!res.ok) setError(data?.error ?? "Replay failed.");
+      else setReplay(data.replay as ReplayResult);
+    } catch {
+      setError("Network error — could not run the replay.");
+    } finally {
+      setReplayLoading(false);
+    }
+  };
+
   const apply = async () => {
     if (!result) return;
     setApplyState("applying");
@@ -133,6 +253,9 @@ export default function EditPanel({
         body: JSON.stringify({ agentId, instruction: result.instruction }),
       });
       const data = await res.json();
+      // Apply runs the replay server-side; surface it whether it passed or (on a
+      // failing verdict) blocked the change.
+      if (data.replay) setReplay(data.replay as ReplayResult);
       if (!res.ok) {
         setError(data?.error ?? "Apply failed.");
         setApplyState("idle");
@@ -147,6 +270,8 @@ export default function EditPanel({
       setApplyState("idle");
     }
   };
+
+  const replayFailed = replay?.verdict === "fail";
 
   const engineLabel = result
     ? result.engine === "llm"
@@ -268,8 +393,23 @@ export default function EditPanel({
 
           {/* verification plan */}
           <div className="mt-3">
-            <div className="text-[11px] text-[var(--faint)] mb-1.5">
-              Verification budget · {zoneLabel(result.zone)}
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="text-[11px] text-[var(--faint)]">
+                Verification budget · {zoneLabel(result.zone)}
+              </div>
+              <button
+                onClick={runReplay}
+                disabled={replayLoading}
+                className="text-[11px] font-semibold text-[var(--accent)] border border-[var(--border)] rounded-md px-2 py-1 hover:border-[var(--border-strong)] disabled:opacity-50 transition-colors"
+              >
+                {replayLoading
+                  ? "Replaying…"
+                  : replay
+                  ? "Re-run"
+                  : result.zone === "tuning"
+                  ? "Run spot-check"
+                  : "Run regression replay"}
+              </button>
             </div>
             <div className="flex flex-col gap-1.5">
               {result.verification.map((v) => (
@@ -286,6 +426,9 @@ export default function EditPanel({
               ))}
             </div>
           </div>
+
+          {/* replay result — the empirical safety net */}
+          {replay && <ReplayView replay={replay} />}
 
           {/* safer alternative for core-gated changes */}
           {result.gate === "blocked" && result.saferAlternative && (
@@ -326,9 +469,15 @@ export default function EditPanel({
                 </>
               ) : (
                 <>
-                  <button className="btn btn-primary flex-1" onClick={apply} disabled={applyState === "applying"}>
+                  <button
+                    className="btn btn-primary flex-1"
+                    onClick={apply}
+                    disabled={applyState === "applying" || replayFailed}
+                  >
                     {applyState === "applying"
                       ? "Applying…"
+                      : replayFailed
+                      ? "Blocked by replay"
                       : result.gate === "check"
                       ? "Run check & apply"
                       : "Apply change"}

@@ -108,9 +108,21 @@ touching services/UI.
   grading itself. Deterministic heuristic engine is the always-on default.
 - APIs: `GET /api/config`, `POST /api/edit` (analyze, no mutation), `POST /api/edit/apply`.
 
+**Eval / regression safety net (BUILT):** `src/lib/services/evals.ts` — `runReplay()`
+samples a topic-stratified **golden set** from the agent's captured runs and projects the
+change's effect per case. Where the math is exact (a model swap) it uses the real
+price/latency tables — a downgrade shows e.g. **−73% cost / −36% latency**; where it can't
+without re-running the agent (a guardrail's false-positive risk, a removed tool's lost
+capability) it uses grounded heuristics and says so. Aggregates projected Δcost / Δlatency /
+Δsuccess + changed/flagged counts into a **pass / warn / fail verdict**. A `fail` blocks the
+apply regardless of zone (enforced in `/api/edit/apply`); core changes show the replay as
+review evidence. `POST /api/edit/replay` is read-only. This is the "flywheel": the
+observability data *is* the eval set. Depth scales with zone — tuning gets a 5-case
+spot-check, near-core/core a 40-case regression pass.
+
 **Still not wired:** the LLM proposer runs only with a key set (untested without one); the
-eval/regression "safety net" is described in the verification budget but not yet executing
-real replays — that's the next depth pass.
+replay *projects* effects from captured data rather than re-executing the agent against a
+live model (that needs the sandbox/host from Phase 1/4).
 
 **Repo:** https://github.com/isaisai101/eternity-ai (private, branch `main`).
 
@@ -150,3 +162,7 @@ real replays — that's the next depth pass.
   change-kind zoning; real before→after diffs; gated, reversible apply with live Version
   history; server-enforced core block; LLM-ready (model proposes, graph disposes). New
   routes `/api/config`, `/api/edit`, `/api/edit/apply`.
+- **Eval / regression safety net:** golden-set replay over captured runs; exact cost/latency
+  projection for model swaps, grounded heuristics elsewhere; pass/warn/fail verdict that
+  blocks a failing apply and backs core review. New route `/api/edit/replay`; replay panel
+  in the AI Studio with per-case flagged rows.

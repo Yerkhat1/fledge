@@ -169,3 +169,34 @@ export interface ApplyResult {
   config: AgentConfig;
   proposal: EditProposal;
 }
+
+// ---------- Eval / regression replay ----------
+// The empirical safety net: old vs new config replayed over a golden set
+// sampled from captured traffic. Zoning says blast radius; this says whether
+// behavior actually held.
+export type ReplayVerdict = "pass" | "warn" | "fail";
+
+export interface ReplayCase {
+  runId: string;
+  topic: string;
+  tool: string;
+  baselineSuccess: boolean;
+  changed: boolean; // did the change affect this case at all?
+  flagged: boolean; // potential regression — needs a human look
+  note: string;
+}
+
+export interface ReplayResult {
+  agentId: string;
+  zone: Zone;
+  depth: "spot-check" | "regression"; // how much of the budget was spent
+  sampled: number; // golden-set size
+  fromRuns: number; // pool it was sampled from
+  changedCases: number;
+  flaggedCases: number;
+  // Projected deltas of new vs. old config over the golden set.
+  deltas: { costPct: number; latencyPct: number; successPts: number };
+  verdict: ReplayVerdict;
+  headline: string;
+  cases: ReplayCase[]; // a few representative rows to display
+}
