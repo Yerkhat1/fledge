@@ -2,7 +2,14 @@
 
 An agent control plane: upload your AI agent, watch what it costs and how it behaves, and change it **safely** — the built-in AI maps your agent into risk zones and stops edits that could break production.
 
-> MVP. The analytics and API are real (computed server-side over seeded run data); the AI editor is a working visual/interaction stub, not yet wired to a model.
+> **This is the public snapshot of the MVP that became Fledge.** Development continued in
+> a private repository with the team (Artifex), where the editor is now wired to a real
+> engine: a change described in plain English is restated for approval, applied, then
+> replayed against test conversations and refused if behaviour moved where it should not.
+> Fledge has been running since September 2026, signup invite-only.
+>
+> In this snapshot the analytics and API are real, computed server-side over seeded run
+> data; the AI editor is a working visual and interaction stub, not yet wired to a model.
 
 ## What's here
 
@@ -39,3 +46,18 @@ Open http://localhost:3000.
 ## Stack
 
 Next.js (App Router) · TypeScript · Tailwind CSS · Recharts.
+
+
+## Why the risk zones
+
+Agents are non-deterministic, so "this edit is safe" cannot be promised. What can be
+promised is that an edit is measured, reversible, and caught before production. Sorting
+an agent's instructions into **core / near-core / tuning** is what makes that
+affordable: tuning changes apply immediately, core changes are blocked and offered a
+safer rewrite, and only the middle band needs a replay to decide. Checking everything at
+the same depth would make the product too slow to use.
+
+## Credits
+
+Built with team Artifex. Commits in this snapshot are authored from a teammate's
+machine; the work was done together.
