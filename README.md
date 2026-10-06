@@ -4,8 +4,19 @@
 costs and how it behaves, then change it in plain English without finding out in production
 that you broke it.
 
-> TODO(me): drop a 20-second screen recording here showing a change being blocked. That one
-> GIF does more than this whole page.
+![AI Studio: the agent reconstructed as a graph, each node zoned core, near-core or tuning](docs/img/studio-zones.jpg)
+
+Asking for *"add a new refund tool and update the policy"* does not get applied. It lands in a
+core zone, so the studio refuses and offers a narrower rewrite or human review instead:
+
+![A change refused: high blast radius, won't auto-apply, with the affected components listed](docs/img/blocked-change.jpg)
+
+Cost, latency, success rate and cache hits, computed server-side from runs the agent reports:
+
+![Statistics: spend, runs, success rate, latency, cache hit and cost per success](docs/img/statistics.jpg)
+
+> Screenshots are of this MVP snapshot running locally. In the private build the editor is
+> wired to the engine, so the same refusal comes from a real replay rather than a preview.
 
 ## The problem
 
@@ -43,8 +54,8 @@ anything its tab stays empty on purpose and shows you how to connect it. Every m
 product makes is attributed to a customer and priced, with a monthly cap that refuses new
 work rather than running up a bill.
 
-> TODO(me): add the live URL here if you want reviewers to reach it, or leave it out while
-> signup is closed.
+> TODO(me): add the live URL if you want reviewers to reach it, or leave it out while signup
+> is invite-only.
 
 ## What is in this repository
 
